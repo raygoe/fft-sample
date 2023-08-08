@@ -75,8 +75,8 @@ void Data::GenFFT()
         float y = mean + z0 * stddev;
 
         m_data[i] = dbToLinear(y);
-
-        // Generate FM waveform
-        generateFMWaveform(m_data.data(), m_data.size(), -40.0f);
     }
+
+    // Generate FM waveform
+    generateFMWaveform(m_data.data(), m_data.size(), -40.0f);
 }
