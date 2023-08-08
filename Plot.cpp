@@ -13,8 +13,8 @@ static const sf::Color TextColor(0xff, 0xff, 0xfa) ; // #fffffa
 static const int numGridLinesH = 10;
 static const int numGridLinesV = 10;
 
-static const float minPlotY = -110.0f;
-static const float maxPlotY =  60.0f;
+static const float minPlotY = -90.0f;
+static const float maxPlotY =  0.0f;
 
 static const int tracesPerSecond = 10;
 

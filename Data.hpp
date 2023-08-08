@@ -18,11 +18,7 @@ public:
         return std::make_shared<Data>();
     }
 
-    float Get(size_t index)
-    {
-        int32_t sample = m_data.at(index);
-        return static_cast<float>(sample) / 1000000.0f;
-    }
+    float Get(size_t index);
 
     size_t size()
     {
@@ -32,5 +28,5 @@ public:
     void GenFFT();
 
 private:
-    std::vector<int32_t> m_data;
+    std::vector<uint32_t> m_data;
 };
