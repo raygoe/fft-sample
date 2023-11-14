@@ -1,25 +1,31 @@
 #include "Data.hpp"
 
+#include <iostream>
 #include <cmath>
 #include <cstdint>
 
-double linearToDb(uint32_t linear) {
-    return 10.0 * log10((double)linear / (double)0xffffffff);
+const char * dataPath = "assets/data.bin";
+
+#define MAX_SPECAN_SAMPLE  ((1ULL << 50) - 1)
+
+double linearToDb(uint64_t linear) {
+    return 10.0 * log10((double)linear / (double)MAX_SPECAN_SAMPLE);
 }
 
-uint32_t dbToLinear(double db) {
-    return (uint32_t)(pow(10.0, db / 10.0) * (double)0xffffffff);
+uint64_t dbToLinear(double db) {
+    return (uint64_t)(pow(10.0, db / 10.0) * (double)MAX_SPECAN_SAMPLE);
 }
 
 float Data::Get(size_t index)
 {
-    uint32_t sample = m_data.at(index);
+    uint64_t sample = m_data.at(index);
+    //std::cout << index << "," << linearToDb(sample) << std::endl;
     return static_cast<float>(linearToDb(sample));
 }
 
 #define PI 3.14159265358979323846
 
-static void generateFMWaveform(uint32_t fftData[], int sampleSize, float peakAmplitude) {
+static void generateFMWaveform(uint64_t fftData[], int sampleSize, float peakAmplitude) {
     int carrierIndex = sampleSize / 2;  // center of the buffer
     int halfWidth = sampleSize / 4;     // 50% width of the FFT
 
@@ -63,6 +69,21 @@ static void generateFMWaveform(uint32_t fftData[], int sampleSize, float peakAmp
 void Data::GenFFT()
 {
     m_data.resize(4096);
+    // We want to open assets/data.bin and then read the data into m_data.
+    // If we can't open the file, we should just return.
+
+    FILE *fp = fopen(dataPath, "rb");
+    if (fp == NULL)
+        return;
+
+    // Read the data into m_data
+    fread(m_data.data(), sizeof(uint64_t), m_data.size(), fp);
+
+    // Close the file
+    fclose(fp);
+
+    return;
+    /*
     for (int i = 0; i < 4096; i++)
     {
         // Box-Muller transform to generate normal distribution from uniform distribution
@@ -79,4 +100,5 @@ void Data::GenFFT()
         // Generate FM waveform
         generateFMWaveform(m_data.data(), m_data.size(), -40.0f);
     }
+    */
 }

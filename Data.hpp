@@ -28,5 +28,5 @@ public:
     void GenFFT();
 
 private:
-    std::vector<uint32_t> m_data;
+    std::vector<uint64_t> m_data;
 };

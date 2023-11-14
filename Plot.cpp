@@ -9,12 +9,16 @@ static const sf::Color PlotBackgroundColor(0x44, 0x46, 0x55); // #444655
 static const sf::Color GridLineColor(0x81, 0x85, 0xa1); // #8185a1
 static const sf::Color PlotLineColor(0x00, 0x7a, 0xcc); // #007acc
 static const sf::Color TextColor(0xff, 0xff, 0xfa) ; // #fffffa
+static const sf::Color MarkerColor(0xff, 0xcb, 0x6b); // #ffcb6b
 
-static const int numGridLinesH = 10;
-static const int numGridLinesV = 10;
+static const int numGridLinesH = 44;
+static const int numGridLinesV = 40;
 
-static const float minPlotY = -90.0f;
+static const float minPlotY = -110.0f;
 static const float maxPlotY =  0.0f;
+
+static const float plotWidth_MHz = 400.0f;
+static const float plotCF_MHz = 400.0f;
 
 static const int tracesPerSecond = 10;
 
@@ -48,8 +52,8 @@ void Plot::Resize()
     m_background.setFillColor(BackgroundColor);
 
     // Next, we want to create a 40 px border around the plot area and set its color.
-    m_plotArea.setSize(sf::Vector2f(m_window.getSize().x - 80, m_window.getSize().y - 80));
-    m_plotArea.setPosition(40, 40);
+    m_plotArea.setSize(sf::Vector2f(m_window.getSize().x - 120, m_window.getSize().y - 120));
+    m_plotArea.setPosition(60, 60);
     m_plotArea.setFillColor(PlotBackgroundColor);
 
     // Next we want to create the grid lines. We want to create horizontal lines and vertical lines.
@@ -61,6 +65,8 @@ void Plot::Resize()
     // Now we can create the lines.
     m_gridLinesH.clear();
     m_gridLinesV.clear();
+    m_gridLabelsH.clear();
+    m_gridLabelsV.clear();
 
     for (int i = 0; i <= numGridLinesH; i++)
     {
@@ -68,6 +74,20 @@ void Plot::Resize()
         line.setPosition(m_plotArea.getPosition().x, m_plotArea.getPosition().y + (i * spacingH));
         line.setFillColor(GridLineColor);
         m_gridLinesH.push_back(line);
+
+        // Now let's create the labels.
+        // For the unit, we'll make sure to refer to the min and max plot Y values.
+        // Note that we generate the labels from the top down so when i == 0, the label is the max value.
+        float labelValue = maxPlotY - ((maxPlotY - minPlotY) * ((float)i / (float)numGridLinesH));
+
+        sf::Text label;
+        label.setFont(m_regFont);
+        label.setString(std::to_string((int)labelValue));
+        label.setCharacterSize(8);
+        label.setFillColor(TextColor);
+        label.setOrigin(label.getLocalBounds().width + 5, label.getLocalBounds().height / 2);
+        label.setPosition(m_plotArea.getPosition().x, m_plotArea.getPosition().y + (i * spacingH));
+        m_gridLabelsH.push_back(label);
     }
 
     for (int i = 0; i <= numGridLinesV; i++)
@@ -76,6 +96,22 @@ void Plot::Resize()
         line.setPosition(m_plotArea.getPosition().x + (i * spacingV), m_plotArea.getPosition().y);
         line.setFillColor(GridLineColor);
         m_gridLinesV.push_back(line);
+
+        // Now let's create the labels.
+        // For the unit, we'll make sure to refer to the CF and width values.
+        // Note that we generate the labels from the right to left so when i == 0, the label is the max value.
+        // when i == numGridLinesV/2, the label is the CF value.
+        // when i == numGridLinesV, the label is the min value.
+        float labelValue = plotCF_MHz + (i - (numGridLinesV / 2)) * (plotWidth_MHz / numGridLinesV);
+
+        sf::Text label;
+        label.setFont(m_regFont);
+        label.setString(std::to_string((int)labelValue));
+        label.setCharacterSize(8);
+        label.setFillColor(TextColor);
+        label.setOrigin(label.getLocalBounds().width / 2, label.getLocalBounds().height - 10);
+        label.setPosition(m_plotArea.getPosition().x + (i * spacingV), m_plotArea.getPosition().y + m_plotArea.getSize().y);
+        m_gridLabelsV.push_back(label);
     }
 
     // Build the plot line.
@@ -91,7 +127,7 @@ void Plot::Resize()
 
     // Let's create the horizontal label.
     m_labelH.setFont(m_regFont);
-    m_labelH.setString("Frequency (Hz)");
+    m_labelH.setString("Frequency (MHz)");
     m_labelH.setCharacterSize(16);
     m_labelH.setFillColor(TextColor);
     m_labelH.setOrigin(m_labelH.getLocalBounds().width / 2, m_labelH.getLocalBounds().height / 2);
@@ -115,16 +151,21 @@ void Plot::Draw()
     for (size_t i = 0; i < m_gridLinesH.size(); i++)
     {
         m_window.draw(m_gridLinesH[i]);
+        m_window.draw(m_gridLabelsH[i]);
     }
 
     for (size_t i = 0; i < m_gridLinesV.size(); i++)
     {
         m_window.draw(m_gridLinesV[i]);
+        m_window.draw(m_gridLabelsV[i]);
     }
 
     m_window.draw(m_titleText);
     m_window.draw(m_labelH);
     m_window.draw(m_labelV);
+
+    m_window.draw(m_marker);
+    m_window.draw(m_markerText);
 
     // Let's clip the plot line to the plot area.
     sf::View oldView = m_window.getView();
@@ -146,12 +187,47 @@ void Plot::BuildPlotLine()
         return p_min + (d - d_min) * (p_max - p_min) / (d_max - d_min);
     };
 
+    float peak_y = -200;
+    float peak_x = -200;
+
     for (size_t i = 0; i < m_data->size(); i++)
     {
+        if (m_data->Get(i) > peak_y)
+        {
+            peak_y = m_data->Get(i);
+            peak_x = i;
+        }
+
         float x = (i / static_cast<float>(m_data->size())) * m_plotArea.getSize().x;
         float y = mapToPixel(m_data->Get(i), minPlotY, maxPlotY, m_plotArea.getSize().y, 0.0f);
 
         m_plotData[i].position = sf::Vector2f(x + m_plotArea.getPosition().x, y + m_plotArea.getPosition().y);
         m_plotData[i].color = PlotLineColor;
+    }
+
+    // Let's use the peak data to draw a peak marker.
+    if (peak_x >= 0)
+    {
+        sf::CircleShape peakMarker(2.0f);
+        float x = (peak_x / static_cast<float>(m_data->size())) * m_plotArea.getSize().x;
+        float y = mapToPixel(peak_y, minPlotY, maxPlotY, m_plotArea.getSize().y, 0.0f);
+        peakMarker.setOrigin(peakMarker.getRadius(), peakMarker.getRadius());
+        peakMarker.setPosition(x + m_plotArea.getPosition().x, y + m_plotArea.getPosition().y);
+        peakMarker.setOutlineColor(MarkerColor);
+        peakMarker.setOutlineThickness(1);
+        peakMarker.setFillColor(sf::Color::Transparent);
+        m_marker = peakMarker;
+
+        // Let's create the peak label just to the right of the marker.
+        float x_mhz = plotCF_MHz + (peak_x - (m_data->size() / 2)) * (plotWidth_MHz / m_data->size());
+        std::string peakLabelStr = "Peak: " + std::to_string(x_mhz) + " MHz, " + std::to_string(peak_y) + " dB";
+        sf::Text peakLabel;
+        peakLabel.setFont(m_regFont);
+        peakLabel.setString(peakLabelStr);
+        peakLabel.setCharacterSize(10);
+        peakLabel.setFillColor(MarkerColor);
+        peakLabel.setOrigin(0, peakLabel.getLocalBounds().height / 2);
+        peakLabel.setPosition(peakMarker.getPosition().x + 5, peakMarker.getPosition().y);
+        m_markerText = peakLabel;
     }
 }
