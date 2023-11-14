@@ -19,7 +19,6 @@ uint64_t dbToLinear(double db) {
 float Data::Get(size_t index)
 {
     uint64_t sample = m_data.at(index);
-    //std::cout << index << "," << linearToDb(sample) << std::endl;
     return static_cast<float>(linearToDb(sample));
 }
 
@@ -96,9 +95,6 @@ void Data::GenFFT()
         float y = mean + z0 * stddev;
 
         m_data[i] = dbToLinear(y);
-
-        // Generate FM waveform
-        generateFMWaveform(m_data.data(), m_data.size(), -40.0f);
     }
     */
 }
